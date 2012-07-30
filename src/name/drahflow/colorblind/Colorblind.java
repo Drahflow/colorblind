@@ -17,4 +17,20 @@ public class Colorblind extends Activity
 		main = new MainSurface(this);
 		setContentView(main);
 	}
+
+	@Override
+	public void onPause() {
+		super.onPause();
+
+		main.stopActive();
+
+		finish();
+	}
+
+	@Override
+	public void onResume() {
+		super.onResume();
+
+		main.startActive();
+	}
 }

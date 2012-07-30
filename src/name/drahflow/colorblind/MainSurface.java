@@ -5,6 +5,7 @@ import android.graphics.PixelFormat;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.ImageFormat;
+import android.graphics.RectF;
 import android.widget.*;
 import android.view.*;
 import android.content.*;
@@ -23,19 +24,29 @@ public class MainSurface extends View {
 	public MainSurface(Colorblind context) {
 		super(context);
 		this.ctx = context;
-
-		camera = Camera.open();
-		camera.setPreviewCallback(previewCallback);
-
-		Camera.Parameters params = camera.getParameters();
-		params.setPreviewFormat(ImageFormat.NV21);
-		params.setPreviewSize(width, height);
-		camera.setParameters(params);
-		camera.startPreview();
 	}
 
-			//camera.stopPreview();
-			//camera.release();
+	public void startActive() {
+		if(camera == null) {
+			camera = Camera.open();
+			camera.setPreviewCallback(previewCallback);
+
+			Camera.Parameters params = camera.getParameters();
+			params.setPreviewFormat(ImageFormat.NV21);
+			params.setPreviewSize(width, height);
+			camera.setParameters(params);
+			camera.startPreview();
+		}
+	}
+
+	public void stopActive() {
+		if(camera != null) {
+			camera.setPreviewCallback(null);
+			camera.stopPreview();
+			camera.release();
+			camera = null;
+		}
+	}
 
 	private List<Integer> reds = new ArrayList<Integer>();
 	private List<Integer> greens = new ArrayList<Integer>();
@@ -57,6 +68,8 @@ public class MainSurface extends View {
 	};
 
 	private Paint paint = new Paint();
+
+	private static RectF colorWheel = new RectF(20, 10, 120, 110);
 
 	@Override
 	protected void onDraw(Canvas canvas) {
@@ -144,6 +157,7 @@ public class MainSurface extends View {
 
 		paint.setColor(0xffffffff);
 		paint.setStrokeWidth(1);
+		paint.setStyle(Paint.Style.STROKE);
 
 		canvas.drawText("R", 10, canvasHeight - 60, paint);
 		canvas.drawText("G", 20, canvasHeight - 60, paint);
@@ -174,22 +188,26 @@ public class MainSurface extends View {
 			}
 		}
 
-		String color = "???";
+		float hueAngle = (float)(hue * Math.PI / 3);
 
-		if(hue > 5.5 || hue < 0.5) {
-			color = "red";
-		} else if(hue < 1.5) {
-			color = "yellow";
-		} else if(hue < 2.5) {
-			color = "green";
-		} else if(hue < 3.5) {
-			color = "cyan";
-		} else if(hue < 4.5) {
-			color = "blue";
-		} else if(hue < 5.5) {
-			color = "blue";
-		}
+		canvas.drawOval(colorWheel, paint);
+		canvas.drawLine(
+				colorWheel.centerX(),
+				colorWheel.centerY(),
+				colorWheel.centerX() + colorWheel.width() * (float)Math.cos(hueAngle) / 2,
+				colorWheel.centerY() - colorWheel.height() * (float)Math.sin(hueAngle) / 2,
+				paint
+			);
+		canvas.drawLine(
+				colorWheel.centerX() + chroma * colorWheel.width() * (float)Math.cos(hueAngle - 0.2) / 2 / 256,
+				colorWheel.centerY() - chroma * colorWheel.height() * (float)Math.sin(hueAngle - 0.2) / 2 / 256,
+				colorWheel.centerX() + chroma * colorWheel.width() * (float)Math.cos(hueAngle + 0.2) / 2 / 256,
+				colorWheel.centerY() - chroma * colorWheel.height() * (float)Math.sin(hueAngle + 0.2) / 2 / 256,
+				paint
+			);
 
-		canvas.drawText(color, 30, 10, paint);
+		canvas.drawText("R", colorWheel.right + 10, colorWheel.centerY(), paint);
+		canvas.drawText("G", colorWheel.left, colorWheel.top, paint);
+		canvas.drawText("B", colorWheel.left, colorWheel.bottom, paint);
 	}
 }
