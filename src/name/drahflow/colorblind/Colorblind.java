@@ -15,7 +15,9 @@ public class Colorblind extends Activity
 		super.onCreate(savedInstanceState);
 
 		main = new MainSurface(this);
-		setContentView(main);
+		setContentView(main.preview);
+		addContentView(main,
+				new ViewGroup.LayoutParams(ViewGroup.LayoutParams.FILL_PARENT, ViewGroup.LayoutParams.FILL_PARENT));
 	}
 
 	@Override

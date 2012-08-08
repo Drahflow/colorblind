@@ -8,13 +8,16 @@ import android.graphics.ImageFormat;
 import android.graphics.RectF;
 import android.widget.*;
 import android.view.*;
+import android.util.*;
 import android.content.*;
 import android.hardware.*;
 import java.util.*;
+import java.io.IOException;
 
 public class MainSurface extends View {
 	private Colorblind ctx;
 	private Camera camera;
+	public SurfaceView preview;
 	private SurfaceHolder previewHolder;
 
 	private int width;
@@ -24,18 +27,46 @@ public class MainSurface extends View {
 	public MainSurface(Colorblind context) {
 		super(context);
 		this.ctx = context;
+		this.preview = new SurfaceView(ctx);
 	}
 
 	public void startActive() {
-		if(camera == null) {
-			camera = Camera.open();
-			camera.setPreviewCallback(previewCallback);
+		if(previewHolder == null) {
+			previewHolder = preview.getHolder();
+			previewHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
+			previewHolder.addCallback(new SurfaceHolder.Callback() {
+				public void surfaceCreated(SurfaceHolder holder) {
+					// no-op -- wait until surfaceChanged()
+				}
+				
+				public void surfaceChanged(SurfaceHolder holder,
+																	 int format, int width,
+																	 int height) {
+					Log.i("Colorblind", "here2");
+					if(camera == null) {
+						camera = Camera.open();
 
-			Camera.Parameters params = camera.getParameters();
-			params.setPreviewFormat(ImageFormat.NV21);
-			params.setPreviewSize(width, height);
-			camera.setParameters(params);
-			camera.startPreview();
+						try {
+							camera.setPreviewDisplay(previewHolder);
+						} catch(IOException ioe) {
+							throw new Error("Camera init failed", ioe);
+						}
+						camera.setPreviewCallback(previewCallback);
+
+						Camera.Parameters params = camera.getParameters();
+						params.setPreviewFormat(ImageFormat.NV21);
+						camera.setParameters(params);
+
+						camera.startPreview();
+					}
+				}
+				
+				public void surfaceDestroyed(SurfaceHolder holder) {
+					// no-op
+				}
+			});
+
+			Log.i("Colorblind", "here");
 		}
 	}
 
@@ -89,10 +120,17 @@ public class MainSurface extends View {
 
 		paint.setStrokeWidth(1);
 
-		for(int cy = 0; cy < canvasHeight; ++cy) {
-			for(int cx = 0; cx < canvasWidth; ++cx) {
+		final int yOffset = 15;
+		final float chromaAmp = 1.5f;
+
+		final int cyMin = (height / 2 - 10) * canvasHeight / height;
+		final int cyMax = (height / 2 + 10) * canvasHeight / height;
+		final int cxMin = (width / 2 - 10) * canvasWidth / width;
+		final int cxMax = (width / 2 + 10) * canvasWidth / width;
+		for(int cy = cyMin; cy < cyMax; ++cy) {
+			for(int cx = cxMin; cx < cxMax; ++cx) {
 				final int x = cx * width / canvasWidth;
-				final int y = cy * width / canvasWidth;
+				final int y = cy * height / canvasHeight + yOffset;
 
 				final int Yi = y * width + x;
 				final int Vi = width * height + (y / 2) * width + (x / 2) * 2;
@@ -125,7 +163,7 @@ public class MainSurface extends View {
 					0x000100 * g |
 					0x000001 * b;
 
-				if(y > height / 2 - 2 && y < height / 2 + 2 && x > width / 2 - 5 && x < width / 2 + 5) {
+				if(y > height / 2 - 2 + yOffset && y < height / 2 + 2 + yOffset && x > width / 2 - 5 && x < width / 2 + 5) {
 					currentColor = 0xffffffff;
 
 					reds.add(r);
@@ -151,12 +189,16 @@ public class MainSurface extends View {
 			green * 0x000100 |
 			blue * 0x000001;
 
+		paint.setColor(0xff000000);
+		paint.setStyle(Paint.Style.FILL);
+		canvas.drawRect(0, 0, 150, canvasHeight, paint);
+
 		paint.setColor(currentColor);
 		paint.setStrokeWidth(30);
 		canvas.drawPoint(10, 10, paint);
 
 		paint.setColor(0xffffffff);
-		paint.setStrokeWidth(1);
+		paint.setStrokeWidth(2);
 		paint.setStyle(Paint.Style.STROKE);
 
 		canvas.drawText("R", 10, canvasHeight - 60, paint);
@@ -199,10 +241,10 @@ public class MainSurface extends View {
 				paint
 			);
 		canvas.drawLine(
-				colorWheel.centerX() + chroma * colorWheel.width() * (float)Math.cos(hueAngle - 0.2) / 2 / 256,
-				colorWheel.centerY() - chroma * colorWheel.height() * (float)Math.sin(hueAngle - 0.2) / 2 / 256,
-				colorWheel.centerX() + chroma * colorWheel.width() * (float)Math.cos(hueAngle + 0.2) / 2 / 256,
-				colorWheel.centerY() - chroma * colorWheel.height() * (float)Math.sin(hueAngle + 0.2) / 2 / 256,
+				colorWheel.centerX() + chromaAmp * chroma * colorWheel.width() * (float)Math.cos(hueAngle - 0.2) / 2 / 256,
+				colorWheel.centerY() - chromaAmp * chroma * colorWheel.height() * (float)Math.sin(hueAngle - 0.2) / 2 / 256,
+				colorWheel.centerX() + chromaAmp * chroma * colorWheel.width() * (float)Math.cos(hueAngle + 0.2) / 2 / 256,
+				colorWheel.centerY() - chromaAmp * chroma * colorWheel.height() * (float)Math.sin(hueAngle + 0.2) / 2 / 256,
 				paint
 			);
 
